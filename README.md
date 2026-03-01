@@ -1,4 +1,12 @@
-# petsim-images
+# Pet Sim Images
 Allows to get ps99 &amp; pets go images without rate limits
-Note: it may take up to 1h for newer images to appear!
+
 It uses official BIG Games API, if something is not there — it's likely a problem with their API!
+
+You can use JsDelivr to get images fast & no rate limit!
+
+All images are stored in the `images` folder, and named `[ID].png`.
+
+To get a certain image, you can use `(game).biggamesapi.io/api/collection/(collection)` and find the thumbnail, then, remove the "rbxassetid://" and add ".png" at the end, that's the file name!
+
+Images update once per 2 hours to prevent rate limits!
