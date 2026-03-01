@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 
 const GAMES = ['ps99', 'petsgo'];
-const IMAGE_DIR = path.join(__dirname, 'images');
+const IMAGE_DIR = path.join(process.cwd(), 'images');
 const SLEEP = (ms) => new Promise(res => setTimeout(res, ms));
 console.log(IMAGE_DIR);
 
