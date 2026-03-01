@@ -3,8 +3,6 @@ Allows to get ps99 &amp; pets go images without rate limits
 
 It uses official BIG Games API, if something is not there — it's likely a problem with their API!
 
-You can use JsDelivr to get images fast & no rate limit!
-
 All images are stored in the `images` folder, and named `[ID].png`.
 
 To get a certain image, you can use `(game).biggamesapi.io/api/collection/(collection)` and find the thumbnail, then, remove the "rbxassetid://" and add ".png" at the end, that's the file name!
