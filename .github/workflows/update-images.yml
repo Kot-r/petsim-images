@@ -28,4 +28,4 @@ jobs:
         with:
           author_name: "Image Bot"
           message: "Updated images from API"
-          add: "public/images"
+          add: "images"
