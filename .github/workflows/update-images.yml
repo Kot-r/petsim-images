@@ -1,31 +1,45 @@
 name: Sync Images
+
 on:
   schedule:
-    - cron: '0 0/2 * * *'
-  workflow_dispatch:
+    - cron: '0 0/2 * * *'  # Запуск каждые 2 часа
+  workflow_dispatch:  # Позволяет запускать вручную через UI
 
 jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: write
-    steps:
-      - uses: actions/checkout@v4
+      contents: write  # Разрешение на запись в репозиторий
 
+    steps:
+      # Шаг 1: Проверяем репозиторий
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # Шаг 2: Устанавливаем зависимости
       - name: Install dependencies
         run: npm install axios fs-extra
-      
+
+      # Шаг 3: Настройка Node.js
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: 18
 
+      # Шаг 4: Загружаем изображения
       - name: Run Downloader
         run: node fetch-images.js
 
+      # Шаг 5: Подтягиваем последние изменения перед коммитом
+      - name: Pull latest changes from remote
+        run: |
+          git pull origin main || true  # Если возникнут ошибки, игнорируем их
+
+      # Шаг 6: Сохраняем изменения и делаем коммит
       - name: Save Changes
         uses: EndBug/add-and-commit@v9
         with:
           author_name: "Image Bot"
+          author_email: "Kot-r@users.noreply.github.com"
           message: "Updated images from API"
-          add: "images"
+          add: "images"  # Добавляем только изменения в папке images
