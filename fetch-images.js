@@ -20,12 +20,14 @@ async function run() {
     for (const g of GAMES) {
         const { data } = await axios.get(`https://${g}.biggamesapi.io/api/collection/Pets`);
         for (const p of data.data) {
-            const n = p.configData.name || p.configName;
-            const norm = p.configData.thumbnail?.split('://')[1];
-            const gold = p.configData.goldenThumbnail?.split('://')[1];
+            const ids = [
+                p.configData.thumbnail?.split('://')[1],
+                p.configData.goldenThumbnail?.split('://')[1]
+            ].filter(Boolean);
 
-            if (norm) await download(`https://${g}.biggamesapi.io/image/${norm}`, `${n}.png`);
-            if (gold) await download(`https://${g}.biggamesapi.io/image/${gold}`, `${n}_golden.png`);
+            for (const id of ids) {
+                await download(`https://${g}.biggamesapi.io/image/${id}`, `${id}.png`);
+            }
         }
     }
 }
