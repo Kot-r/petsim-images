@@ -11,6 +11,9 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v4
+
+      - name: Install dependencies
+        run: npm install axios fs-extra
       
       - name: Setup Node
         uses: actions/setup-node@v4
