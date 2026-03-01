@@ -6,6 +6,7 @@ const path = require('path');
 const GAMES = ['ps99', 'petsgo'];
 const IMAGE_DIR = path.join(__dirname, 'images');
 const SLEEP = (ms) => new Promise(res => setTimeout(res, ms));
+console.log(IMAGE_DIR);
 
 const get = (url) => new Promise((res, rej) => {
     https.get(url, (r) => {
