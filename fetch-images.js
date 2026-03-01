@@ -1,47 +1,31 @@
-const fs = require('fs');
+const axios = require('axios');
+const fs = require('fs-extra');
 const path = require('path');
 
-const GAMES = [
-    { name: 'ps99', api: 'https://ps99.biggamesapi.io' },
-    { name: 'petsgo', api: 'https://petsgo.biggamesapi.io' }
-];
+const GAMES = ['ps99', 'petsgo'];
+const IMAGE_DIR = path.join(__dirname, 'images');
 
-const sleep = (ms) => new Promise(res => setTimeout(res, ms));
-
-async function saveImage(gameApi, imageId, folder, filename) {
-    if (!imageId || imageId === "") return;
-    
-    const filePath = path.join(__dirname, 'public/images', folder, filename);
-    if (fs.existsSync(filePath)) return;
-
-    const imageUrl = `${gameApi}/image/${imageId}`; 
-    
-    try {
-        const res = await fetch(imageUrl);
-        if (!res.ok) return;
-        
-        const buffer = await res.arrayBuffer();
-        fs.writeFileSync(filePath, Buffer.from(buffer));
-        console.log(`Saved ${filename} from ID: ${imageId}`);
-      
-        await sleep(800); 
-    } catch (e) { console.error(`Error on ID ${imageId}:`, e.message); }
+async function download(url, name) {
+    const p = path.join(IMAGE_DIR, name);
+    if (await fs.pathExists(p)) return;
+    const res = await axios({ url, method: 'GET', responseType: 'stream' }).catch(() => null);
+    if (!res) return;
+    const w = fs.createWriteStream(p);
+    res.data.pipe(w);
+    return new Promise((resolve) => { w.on('finish', resolve); w.on('error', resolve); });
 }
 
 async function run() {
-    for (const game of GAMES) {
-        console.log(`Syncing ${game.name}...`);
-        const res = await fetch(`${game.api}/api/collection/Pets`);
-        const { data } = await res.json();
+    await fs.ensureDir(IMAGE_DIR);
+    for (const g of GAMES) {
+        const { data } = await axios.get(`https://${g}.biggamesapi.io/api/collection/Pets`);
+        for (const p of data.data) {
+            const n = p.configData.name || p.configName;
+            const norm = p.configData.thumbnail?.split('://')[1];
+            const gold = p.configData.goldenThumbnail?.split('://')[1];
 
-        const dir = path.join(__dirname, 'public/images', game.name);
-        if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-
-        for (const pet of data) {
-            const petName = pet.configData.id.replace(/\s+/g, '_');
-          
-            await saveImage(game.api, pet.configData.thumbnail, game.name, `${petName}.png`);
-            await saveImage(game.api, pet.configData.goldenThumbnail, game.name, `${petName}_golden.png`);
+            if (norm) await download(`https://${g}.biggamesapi.io/image/${norm}`, `${n}.png`);
+            if (gold) await download(`https://${g}.biggamesapi.io/image/${gold}`, `${n}_golden.png`);
         }
     }
 }
