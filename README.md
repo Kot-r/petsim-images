@@ -7,8 +7,12 @@ All images are stored in the `images` folder, and named `[ID].png`.
 
 To get a certain image, you can use `(game).biggamesapi.io/api/collection/(collection)` and find the thumbnail, then, remove the "rbxassetid://" and add ".png" at the end, that's the file name!
 
-Images update and automatically upload here once per 2 hours to prevent rate limits!
+Images update and automatically upload here once per ~2 hours to prevent rate limits!
 
 Tip: you can use the `image_missing.png` file if the image is missing!
 
-NOTE: Only pets are currently supported! But works with both PS99 & Pets GO
+##### NOTE: Only pets are currently supported! But works with both PS99 & Pets GO
+
+> Current Script Version: 1.0
+> 
+> Recent Changes: added `shiny.png`!
