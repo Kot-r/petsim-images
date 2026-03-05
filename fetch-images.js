@@ -14,7 +14,7 @@ const COLLECTIONS = [
 
 const IMAGE_FIELDS = {
     'Boosts': ['Icon'],
-    'Boxes': [], // handled specially
+    'Boxes': [],           // handled specially
     'Charms': ['Icon'],
     'Currency': ['orbImage', 'imageOutline', 'tinyImage'],
     'Eggs': ['icon'],
@@ -26,7 +26,7 @@ const IMAGE_FIELDS = {
     'Mastery': ['Icon'],
     'MiscItems': ['Icon', 'AltIcon'],
     'Pets': ['thumbnail', 'goldenThumbnail'],
-    'Potions': [], // handled specially
+    'Potions': [],         // handled specially (Tiers[].Icon)
     'Seeds': ['Icon'],
     'Shovels': ['Icon'],
     'Sprinklers': ['Icon'],
@@ -70,13 +70,15 @@ async function run() {
         
         for (const collName of COLLECTIONS) {
             console.log(`Fetching collection: ${collName}...`);
-            const data = await get(`https://${g}.biggamesapi.io/api/collection/${collName}`);
+            const data = await get(`https://${g}.biggamesapi.io/api/collection/${collName}?limit=1000`);
             await SLEEP(700);
 
             if (!data?.data) {
-                console.warn(`No data found for collection: ${collName}`);
+                console.warn(`No data for ${collName}`);
                 continue;
             }
+
+            console.log(`  → ${data.data.length} items loaded (all vanilla content now fetched)`);
 
             for (const item of data.data) {
                 const config = item.configData;
@@ -84,28 +86,27 @@ async function run() {
 
                 let potentialIds = [];
 
-                // Standard fields
                 const fields = IMAGE_FIELDS[collName] || [];
                 for (const field of fields) {
                     const val = config[field];
                     if (val) potentialIds.push(extractId(val));
                 }
 
-                // Special nested logic
+                // Special nested cases (exact structure from the live API)
                 if (collName === 'Boxes') {
                     const iconsArr = config.Icons || [];
                     for (const ico of iconsArr) {
-                        if (ico.Icon) potentialIds.push(extractId(ico.Icon));
+                        if (ico?.Icon) potentialIds.push(extractId(ico.Icon));
                     }
                 } else if (collName === 'Potions') {
                     const tiers = config.Tiers || [];
                     for (const tier of tiers) {
-                        if (tier.Icon) potentialIds.push(extractId(tier.Icon));
+                        if (tier?.Icon) potentialIds.push(extractId(tier.Icon));
                     }
                 } else if (['Currency', 'Upgrades'].includes(collName)) {
                     const bagTiers = config.BagTiers || [];
                     for (const tier of bagTiers) {
-                        if (tier.image) potentialIds.push(extractId(tier.image));
+                        if (tier?.image) potentialIds.push(extractId(tier.image));
                     }
                 }
 
@@ -119,14 +120,12 @@ async function run() {
                     if (ok) {
                         console.log(`[${collName}] Downloaded: ${id}.png`);
                         await SLEEP(650);
-                    } else {
-                        console.log(`[${collName}] Failed to download: ${id}`);
                     }
                 }
             }
         }
     }
-    console.log("\n✅ Finished!.");
+    console.log("\n✅ Finished!");
 }
 
 run();
