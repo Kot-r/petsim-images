@@ -9,10 +9,10 @@ To get a certain image, you can use `(game).biggamesapi.io/api/collection/(colle
 
 Images update and automatically upload here once per ~2 hours to prevent rate limits!
 
-Tip: you can use the `image_missing.png` file if the image is missing!
+Tip: you can use the `image_missing.png` file if the image is missing, and use `shiny.png` for shiny pets, fruits and empowered enchants!
 
-##### NOTE: Only pets are currently supported! But works with both PS99 & Pets GO
-
-> Current Script Version: 1.0
+> Current Script Version: 2.0
 > 
-> Recent Changes: added `shiny.png`!
+> Recent Changes:
+> - Support for much more collections other than pets!
+> - Auto-retry logic to prevent image loss while download (limited to 10, image missing after download wave = outage)
