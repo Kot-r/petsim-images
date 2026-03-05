@@ -6,6 +6,9 @@ const GAMES = ['ps99', 'petsgo'];
 const IMAGE_DIR = path.join(process.cwd(), 'images');
 const SLEEP = (ms) => new Promise(res => setTimeout(res, ms));
 
+const MAX_RETRIES = 10;
+const RETRY_DELAY = 2000;
+
 const COLLECTIONS = [
     'Boosts', 'Boxes', 'Charms', 'Currency', 'Eggs', 'Enchants', 'FishingRods',
     'Fruits', 'Hoverboards', 'Lootboxes', 'Mastery', 'MiscItems', 'Pets', 'Potions',
@@ -13,27 +16,12 @@ const COLLECTIONS = [
 ];
 
 const IMAGE_FIELDS = {
-    'Boosts': ['Icon'],
-    'Boxes': [], // handled specially
-    'Charms': ['Icon'],
-    'Currency': ['orbImage', 'imageOutline', 'tinyImage'],
-    'Eggs': ['icon'],
-    'Enchants': ['Icon', 'PageIcon'],
-    'FishingRods': ['Icon'],
-    'Fruits': ['Icon', 'ShinyIcon'],
-    'Hoverboards': ['Icon'],
-    'Lootboxes': ['Icon'],
-    'Mastery': ['Icon'],
-    'MiscItems': ['Icon', 'AltIcon'],
-    'Pets': ['thumbnail', 'goldenThumbnail'],
-    'Potions': [], // handled specially
-    'Seeds': ['Icon'],
-    'Shovels': ['Icon'],
-    'Sprinklers': ['Icon'],
-    'Ultimates': ['Icon'],
-    'Upgrades': ['Icon', 'orbImage', 'imageOutline', 'tinyImage'],
-    'WateringCans': ['Icon'],
-    'XPPotions': ['Icon']
+    'Boosts': ['Icon'], 'Boxes': [], 'Charms': ['Icon'], 'Currency': ['orbImage', 'imageOutline', 'tinyImage'],
+    'Eggs': ['icon'], 'Enchants': ['Icon', 'PageIcon'], 'FishingRods': ['Icon'], 'Fruits': ['Icon', 'ShinyIcon'],
+    'Hoverboards': ['Icon'], 'Lootboxes': ['Icon'], 'Mastery': ['Icon'], 'MiscItems': ['Icon', 'AltIcon'],
+    'Pets': ['thumbnail', 'goldenThumbnail'], 'Potions': [], 'Seeds': ['Icon'], 'Shovels': ['Icon'],
+    'Sprinklers': ['Icon'], 'Ultimates': ['Icon'], 'Upgrades': ['Icon', 'orbImage', 'imageOutline', 'tinyImage'],
+    'WateringCans': ['Icon'], 'XPPotions': ['Icon']
 };
 
 const get = (url) => new Promise((res, rej) => {
@@ -48,7 +36,7 @@ const get = (url) => new Promise((res, rej) => {
 });
 
 const download = (url, p) => new Promise((res) => {
-    if (fs.existsSync(p)) return res(false);
+    if (fs.existsSync(p)) return res(true);
     https.get(url, (r) => {
         if (r.statusCode !== 200) return res(false);
         const w = fs.createWriteStream(p);
@@ -57,8 +45,9 @@ const download = (url, p) => new Promise((res) => {
     }).on('error', () => res(false));
 });
 
-const extractId = (str) => {
-    if (!str || typeof str !== 'string') return null;
+const extractId = (val) => {
+    if (!val || val === 0 || val === "0") return null;
+    let str = String(val);
     return str.includes('://') ? str.split('://')[1] : str;
 };
 
@@ -66,47 +55,29 @@ async function run() {
     if (!fs.existsSync(IMAGE_DIR)) fs.mkdirSync(IMAGE_DIR);
 
     for (const g of GAMES) {
-        console.log(`\n--- Processing Game: ${g.toUpperCase()} ---`);
+        console.log(`\n--- Game: ${g.toUpperCase()} ---`);
         
         for (const collName of COLLECTIONS) {
-            console.log(`Fetching collection: ${collName}...`);
+            console.log(`Fetching: ${collName}...`);
             const data = await get(`https://${g}.biggamesapi.io/api/collection/${collName}`);
-            await SLEEP(700);
+            await SLEEP(1000);
 
-            if (!data?.data) {
-                console.warn(`No data found for collection: ${collName}`);
-                continue;
-            }
+            if (!data?.data) continue;
 
             for (const item of data.data) {
                 const config = item.configData;
                 if (!config) continue;
 
                 let potentialIds = [];
-
-                // Standard fields
                 const fields = IMAGE_FIELDS[collName] || [];
-                for (const field of fields) {
-                    const val = config[field];
-                    if (val) potentialIds.push(extractId(val));
-                }
+                fields.forEach(f => potentialIds.push(extractId(config[f])));
 
-                // Special nested logic
-                if (collName === 'Boxes') {
-                    const iconsArr = config.Icons || [];
-                    for (const ico of iconsArr) {
-                        if (ico.Icon) potentialIds.push(extractId(ico.Icon));
-                    }
-                } else if (collName === 'Potions') {
-                    const tiers = config.Tiers || [];
-                    for (const tier of tiers) {
-                        if (tier.Icon) potentialIds.push(extractId(tier.Icon));
-                    }
-                } else if (['Currency', 'Upgrades'].includes(collName)) {
-                    const bagTiers = config.BagTiers || [];
-                    for (const tier of bagTiers) {
-                        if (tier.image) potentialIds.push(extractId(tier.image));
-                    }
+                if (collName === 'Boxes' && config.Icons) {
+                    config.Icons.forEach(ico => potentialIds.push(extractId(ico.Icon)));
+                } else if (collName === 'Potions' && config.Tiers) {
+                    config.Tiers.forEach(t => potentialIds.push(extractId(t.Icon)));
+                } else if (['Currency', 'Upgrades'].includes(collName) && config.BagTiers) {
+                    config.BagTiers.forEach(t => potentialIds.push(extractId(t.image)));
                 }
 
                 const ids = [...new Set(potentialIds.filter(Boolean))];
@@ -115,18 +86,31 @@ async function run() {
                     const pathFile = path.join(IMAGE_DIR, `${id}.png`);
                     if (fs.existsSync(pathFile)) continue;
 
-                    const ok = await download(`https://${g}.biggamesapi.io/image/${id}`, pathFile);
-                    if (ok) {
-                        console.log(`[${collName}] Downloaded: ${id}.png`);
-                        await SLEEP(650);
-                    } else {
-                        console.log(`[${collName}] Failed to download: ${id}`);
+                    let success = false;
+
+                    for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+                        const ok = await download(`https://${g}.biggamesapi.io/image/${id}`, pathFile);
+                        
+                        if (ok) {
+                            console.log(`[${collName}] Saved: ${id}.png`);
+                            success = true;
+                            break; 
+                        } else {
+                            if (attempt < MAX_RETRIES) {
+                                console.warn(`[${collName}] Fail ${attempt}/${MAX_RETRIES} for ${id}. Retrying...`);
+                                await SLEEP(RETRY_DELAY);
+                            } else {
+                                console.error(`[${collName}] Final failure for ${id}. Skipping.`);
+                            }
+                        }
                     }
+
+                    await SLEEP(750); 
                 }
             }
         }
     }
-    console.log("\n✅ Finished!.");
+    console.log("\n✅ Done.");
 }
 
 run();
