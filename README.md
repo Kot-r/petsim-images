@@ -18,3 +18,4 @@ Tip: you can use the `image_missing.png` file if the image is missing, and use `
 > - Auto-retry logic to prevent image loss while download (limited to 10, image missing after download wave = outage)
 
 NOTE: Please do not use raw.githubusercontent.com to get images to avoid rate limits & excessive usage! I recommend using other services that cache images on their services instead!
+There's a few of them online which work well with GitHub.
