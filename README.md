@@ -1,5 +1,5 @@
 # Pet Sim Images
-Allows to get ps99 &amp; pets go images without rate limits
+Allows to get ps99 &amp; pets go images without excessive rate limits
 
 It uses official BIG Games API, if something is not there — it's likely a problem with their API!
 
@@ -16,3 +16,5 @@ Tip: you can use the `image_missing.png` file if the image is missing, and use `
 > Recent Changes:
 > - Support for much more collections other than pets!
 > - Auto-retry logic to prevent image loss while download (limited to 10, image missing after download wave = outage)
+
+NOTE: Please do not use raw.githubusercontent.com to get images to avoid rate limits & excessive usage! I recommend using other services that cache images on their services instead!
