@@ -72,8 +72,9 @@ async function run() {
             continue;
         }
 
-        const COLLECTIONS = collectionsData.data.map(c => c.name);
-
+        let COLLECTIONS;
+        COLLECTIONS = collectionsData.data;
+        
         for (const collName of COLLECTIONS) {
             console.log(`Fetching: ${collName}...`);
             const data = await get(`https://${g}.biggamesapi.io/api/collection/${collName}`);
