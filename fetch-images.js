@@ -19,13 +19,18 @@ const extractId = (val) => {
 
 const findAllAssetIds = (obj) => {
     const ids = new Set();
-    function traverse(o) {
+    function traverse(o, key = null) {
         if (o == null) return;
+
+        if (key === 'Sounds') {
+            return;
+        }
+
         if (typeof o === 'object') {
             if (Array.isArray(o)) {
-                o.forEach(traverse);
+                o.forEach(item => traverse(item));
             } else {
-                Object.values(o).forEach(traverse);
+                Object.entries(o).forEach(([k, v]) => traverse(v, k));
             }
         } else if (typeof o === 'string' || typeof o === 'number') {
             const id = extractId(o);
@@ -68,13 +73,12 @@ async function run() {
         await SLEEP(1000);
 
         if (!collectionsData || !Array.isArray(collectionsData.data)) {
-            console.error(`Could not fetch collections for ${g.toUpperCase()}. Skipping.`);
+            console.error(`Could not fetch collections for ${g.toUpperCase()} or data format is unexpected. Skipping.`);
             continue;
         }
 
-        let COLLECTIONS;
-        COLLECTIONS = collectionsData.data;
-        
+        const COLLECTIONS = collectionsData.data
+
         for (const collName of COLLECTIONS) {
             console.log(`Fetching: ${collName}...`);
             const data = await get(`https://${g}.biggamesapi.io/api/collection/${collName}`);
