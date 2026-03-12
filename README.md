@@ -11,11 +11,10 @@ Images update and automatically upload here once per ~2 hours to prevent rate li
 
 Tip: you can use the `image_missing.png` file if the image is missing, and use `shiny.png` for shiny pets, fruits and empowered enchants!
 
-> Current Script Version: 2.0
+> Current Script Version: 3.0
 > 
 > Recent Changes:
-> - Support for much more collections other than pets!
-> - Auto-retry logic to prevent image loss while download (limited to 10, image missing after download wave = outage)
+> - Everything is dynamic now, hopefully it'll fetch all images now
 
 NOTE: Please do not use raw.githubusercontent.com to get images to avoid rate limits & excessive usage! I recommend using other services that cache images on their services instead!
 There's a few of them online which work well with GitHub.
