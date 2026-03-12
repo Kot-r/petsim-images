@@ -9,19 +9,31 @@ const SLEEP = (ms) => new Promise(res => setTimeout(res, ms));
 const MAX_RETRIES = 10;
 const RETRY_DELAY = 2000;
 
-const COLLECTIONS = [
-    'Boosts', 'Boxes', 'Charms', 'Currency', 'Eggs', 'Enchants', 'FishingRods',
-    'Fruits', 'Hoverboards', 'Lootboxes', 'Mastery', 'MiscItems', 'Pets', 'Potions',
-    'Seeds', 'Shovels', 'Sprinklers', 'Ultimates', 'Upgrades', 'WateringCans', 'XPPotions'
-];
+const extractId = (val) => {
+    if (!val || val === 0 || val === "0") return null;
+    let str = String(val).trim();
+    const match = str.match(/rbxasset(?:id)?:\/\/(\d+)/i);
+    if (match) return match[1];
+    return null;
+};
 
-const IMAGE_FIELDS = {
-    'Boosts': ['Icon'], 'Boxes': [], 'Charms': ['Icon'], 'Currency': ['orbImage', 'imageOutline', 'tinyImage'],
-    'Eggs': ['icon'], 'Enchants': ['Icon', 'PageIcon'], 'FishingRods': ['Icon'], 'Fruits': ['Icon', 'ShinyIcon'],
-    'Hoverboards': ['Icon'], 'Lootboxes': ['Icon'], 'Mastery': ['Icon'], 'MiscItems': ['Icon', 'AltIcon'],
-    'Pets': ['thumbnail', 'goldenThumbnail'], 'Potions': [], 'Seeds': ['Icon'], 'Shovels': ['Icon'],
-    'Sprinklers': ['Icon'], 'Ultimates': ['Icon'], 'Upgrades': ['Icon', 'orbImage', 'imageOutline', 'tinyImage'],
-    'WateringCans': ['Icon'], 'XPPotions': ['Icon']
+const findAllAssetIds = (obj) => {
+    const ids = new Set();
+    function traverse(o) {
+        if (o == null) return;
+        if (typeof o === 'object') {
+            if (Array.isArray(o)) {
+                o.forEach(traverse);
+            } else {
+                Object.values(o).forEach(traverse);
+            }
+        } else if (typeof o === 'string' || typeof o === 'number') {
+            const id = extractId(o);
+            if (id) ids.add(id);
+        }
+    }
+    traverse(obj);
+    return Array.from(ids);
 };
 
 const get = (url) => new Promise((res, rej) => {
@@ -45,42 +57,38 @@ const download = (url, p) => new Promise((res) => {
     }).on('error', () => res(false));
 });
 
-const extractId = (val) => {
-    if (!val || val === 0 || val === "0") return null;
-    let str = String(val);
-    return str.includes('://') ? str.split('://')[1] : str;
-};
-
 async function run() {
     if (!fs.existsSync(IMAGE_DIR)) fs.mkdirSync(IMAGE_DIR);
 
     for (const g of GAMES) {
         console.log(`\n--- Game: ${g.toUpperCase()} ---`);
-        
+
+        console.log(`Fetching collections list for ${g.toUpperCase()}...`);
+        const collectionsData = await get(`https://${g}.biggamesapi.io/api/collections`);
+        await SLEEP(1000);
+
+        if (!collectionsData || !Array.isArray(collectionsData.data)) {
+            console.error(`Could not fetch collections for ${g.toUpperCase()}. Skipping.`);
+            continue;
+        }
+
+        const COLLECTIONS = collectionsData.data.map(c => c.name);
+
         for (const collName of COLLECTIONS) {
             console.log(`Fetching: ${collName}...`);
             const data = await get(`https://${g}.biggamesapi.io/api/collection/${collName}`);
             await SLEEP(1000);
 
-            if (!data?.data) continue;
+            if (!data?.data) {
+                console.warn(`No data found for collection: ${collName}. Skipping.`);
+                continue;
+            }
 
             for (const item of data.data) {
                 const config = item.configData;
                 if (!config) continue;
 
-                let potentialIds = [];
-                const fields = IMAGE_FIELDS[collName] || [];
-                fields.forEach(f => potentialIds.push(extractId(config[f])));
-
-                if (collName === 'Boxes' && config.Icons) {
-                    config.Icons.forEach(ico => potentialIds.push(extractId(ico.Icon)));
-                } else if (collName === 'Potions' && config.Tiers) {
-                    config.Tiers.forEach(t => potentialIds.push(extractId(t.Icon)));
-                } else if (['Currency', 'Upgrades'].includes(collName) && config.BagTiers) {
-                    config.BagTiers.forEach(t => potentialIds.push(extractId(t.image)));
-                }
-
-                const ids = [...new Set(potentialIds.filter(Boolean))];
+                const ids = findAllAssetIds(config);
 
                 for (const id of ids) {
                     const pathFile = path.join(IMAGE_DIR, `${id}.png`);
@@ -104,7 +112,6 @@ async function run() {
                             }
                         }
                     }
-
                     await SLEEP(750); 
                 }
             }
