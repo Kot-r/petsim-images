@@ -6,7 +6,7 @@ const GAMES = ['ps99', 'petsgo'];
 const IMAGE_DIR = path.join(process.cwd(), 'images');
 const SLEEP = (ms) => new Promise(res => setTimeout(res, ms));
 
-const MAX_RETRIES = 10;
+const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000;
 
 const extractId = (val) => {
@@ -80,6 +80,10 @@ async function run() {
         const COLLECTIONS = collectionsData.data
 
         for (const collName of COLLECTIONS) {
+            if (collName === 'Zones') {
+                return;
+            }
+            
             console.log(`Fetching: ${collName}...`);
             const data = await get(`https://${g}.biggamesapi.io/api/collection/${collName}`);
             await SLEEP(1000);
