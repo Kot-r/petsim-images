@@ -1,5 +1,5 @@
 # Pet Sim Images
-Allows to get ps99 &amp; pets go images without excessive rate limits
+Most/all images from the BIG Games API!
 
 It uses official BIG Games API, if something is not there — it's likely a problem with their API!
 
