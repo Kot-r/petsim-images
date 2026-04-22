@@ -21,11 +21,7 @@ const findAllAssetIds = (obj) => {
     const ids = new Set();
     function traverse(o, key = null) {
         if (o == null) return;
-
-        if (key === 'Sounds') {
-            return;
-        }
-
+        if (key === 'Sounds') return;
         if (typeof o === 'object') {
             if (Array.isArray(o)) {
                 o.forEach(item => traverse(item));
@@ -53,12 +49,32 @@ const get = (url) => new Promise((res, rej) => {
 });
 
 const download = (url, p) => new Promise((res) => {
-    if (fs.existsSync(p)) return res(true);
     https.get(url, (r) => {
-        if (r.statusCode !== 200) return res(false);
+        if ([301, 302].includes(r.statusCode)) {
+            return download(r.headers.location, p).then(res);
+        }
+
+        if (r.statusCode !== 200) {
+            r.resume();
+            return res(false);
+        }
+
+        const remoteSize = parseInt(r.headers['content-length'], 10);
+        
+        if (fs.existsSync(p)) {
+            const localSize = fs.statSync(p).size;
+            if (localSize === remoteSize) {
+                r.resume();
+                return res('skipped'); 
+            }
+        }
+
         const w = fs.createWriteStream(p);
         r.pipe(w);
-        w.on('finish', () => { w.close(); res(true); });
+        w.on('finish', () => {
+            w.close();
+            res('downloaded');
+        });
     }).on('error', () => res(false));
 });
 
@@ -67,61 +83,46 @@ async function run() {
 
     for (const g of GAMES) {
         console.log(`\n--- Game: ${g.toUpperCase()} ---`);
-
-        console.log(`Fetching collections list for ${g.toUpperCase()}...`);
         const collectionsData = await get(`https://${g}.biggamesapi.io/api/collections`);
         await SLEEP(1000);
 
-        if (!collectionsData || !Array.isArray(collectionsData.data)) {
-            console.error(`Could not fetch collections for ${g.toUpperCase()} or data format is unexpected. Skipping.`);
-            continue;
-        }
+        if (!collectionsData || !Array.isArray(collectionsData.data)) continue;
 
-        const COLLECTIONS = collectionsData.data
-
-        for (const collName of COLLECTIONS) {
-            if (collName === 'Zones') {
-                return;
-            }
+        for (const collName of collectionsData.data) {
+            if (collName === 'Zones') continue;
             
             console.log(`Fetching: ${collName}...`);
             const data = await get(`https://${g}.biggamesapi.io/api/collection/${collName}`);
             await SLEEP(1000);
 
-            if (!data?.data) {
-                console.warn(`No data found for collection: ${collName}. Skipping.`);
-                continue;
-            }
+            if (!data?.data) continue;
 
             for (const item of data.data) {
-                const config = item.configData;
-                if (!config) continue;
-
-                const ids = findAllAssetIds(config);
+                const ids = findAllAssetIds(item.configData);
 
                 for (const id of ids) {
                     const pathFile = path.join(IMAGE_DIR, `${id}.png`);
-                    if (fs.existsSync(pathFile)) continue;
-
                     let success = false;
 
                     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-                        const ok = await download(`https://${g}.biggamesapi.io/image/${id}`, pathFile);
+                        const status = await download(`https://${g}.biggamesapi.io/image/${id}`, pathFile);
                         
-                        if (ok) {
-                            console.log(`[${collName}] Saved: ${id}.png`);
+                        if (status === 'skipped') {
+                            success = true;
+                            break;
+                        } else if (status === 'downloaded') {
+                            console.log(`[${collName}] UPDATED/SAVED: ${id}.png`);
                             success = true;
                             break; 
                         } else {
                             if (attempt < MAX_RETRIES) {
-                                console.warn(`[${collName}] Fail ${attempt}/${MAX_RETRIES} for ${id}. Retrying...`);
                                 await SLEEP(RETRY_DELAY);
                             } else {
-                                console.error(`[${collName}] Final failure for ${id}. Skipping.`);
+                                console.error(`[${collName}] Final failure for ${id}.`);
                             }
                         }
                     }
-                    await SLEEP(750); 
+                    if (success) await SLEEP(50);
                 }
             }
         }
