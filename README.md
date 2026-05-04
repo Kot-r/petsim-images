@@ -17,6 +17,3 @@ Tip: you can use the `image_missing.png` file if the image is missing, and use `
 > - Everything is dynamic now, hopefully it'll fetch all images now
 > - FIX: excluding Sounds because the errors slow down
 > - FIX: excluding Zones, reduced retry to 3
-
-NOTE: Please do not use raw.githubusercontent.com to get images to avoid rate limits & excessive usage! I recommend using other services that cache images on their servers instead!
-There's a few of them online which work well with GitHub.
