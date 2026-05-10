@@ -131,7 +131,7 @@ async function run() {
 
                     let success = false;
                     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-                        const ok = await download(`https://${g}.biggamesapi.io/image/${id}`, pathFile);
+                        const ok = await download(`https://${g}.biggamesapi.io/image/${id}?test=1`, pathFile);
                         
                         if (ok) {
                             // VERIFY DOWNLOADED FILE
