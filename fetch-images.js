@@ -4,10 +4,24 @@ const path = require('path');
 
 const GAMES = ['ps99', 'petsgo'];
 const IMAGE_DIR = path.join(process.cwd(), 'images');
+const PLACEHOLDER_FILE = 'placeholder_size.txt';
 const SLEEP = (ms) => new Promise(res => setTimeout(res, ms));
 
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 2000;
+
+const getPlaceholderSize = () => {
+    try {
+        if (fs.existsSync(PLACEHOLDER_FILE)) {
+            const content = fs.readFileSync(PLACEHOLDER_FILE, 'utf8').trim();
+            const size = parseInt(content, 10);
+            return isNaN(size) ? null : size;
+        }
+    } catch (e) {
+        console.error("Error reading placeholder_size.txt:", e.message);
+    }
+    return null;
+};
 
 const extractId = (val) => {
     if (!val || val === 0 || val === "0") return null;
@@ -21,11 +35,7 @@ const findAllAssetIds = (obj) => {
     const ids = new Set();
     function traverse(o, key = null) {
         if (o == null) return;
-
-        if (key === 'Sounds') {
-            return;
-        }
-
+        if (key === 'Sounds') return;
         if (typeof o === 'object') {
             if (Array.isArray(o)) {
                 o.forEach(item => traverse(item));
@@ -53,7 +63,6 @@ const get = (url) => new Promise((res, rej) => {
 });
 
 const download = (url, p) => new Promise((res) => {
-    if (fs.existsSync(p)) return res(true);
     https.get(url, (r) => {
         if (r.statusCode !== 200) return res(false);
         const w = fs.createWriteStream(p);
@@ -65,60 +74,62 @@ const download = (url, p) => new Promise((res) => {
 async function run() {
     if (!fs.existsSync(IMAGE_DIR)) fs.mkdirSync(IMAGE_DIR);
 
+    const placeholderSize = getPlaceholderSize();
+    if (placeholderSize !== null) {
+        console.log(`[System] Excluding images with size: ${placeholderSize} bytes.`);
+    } else {
+        console.warn(`[System] No valid placeholder_size.txt found. Proceeding without exclusion.`);
+    }
+
     for (const g of GAMES) {
         console.log(`\n--- Game: ${g.toUpperCase()} ---`);
-
-        console.log(`Fetching collections list for ${g.toUpperCase()}...`);
         const collectionsData = await get(`https://${g}.biggamesapi.io/api/collections`);
         await SLEEP(1000);
 
-        if (!collectionsData || !Array.isArray(collectionsData.data)) {
-            console.error(`Could not fetch collections for ${g.toUpperCase()} or data format is unexpected. Skipping.`);
-            continue;
-        }
+        if (!collectionsData?.data) continue;
 
-        const COLLECTIONS = collectionsData.data
-
-        for (const collName of COLLECTIONS) {
-            if (collName === 'Zones') {
-                return;
-            }
+        for (const collName of collectionsData.data) {
+            if (collName === 'Zones') continue;
             
             console.log(`Fetching: ${collName}...`);
             const data = await get(`https://${g}.biggamesapi.io/api/collection/${collName}`);
             await SLEEP(1000);
 
-            if (!data?.data) {
-                console.warn(`No data found for collection: ${collName}. Skipping.`);
-                continue;
-            }
+            if (!data?.data) continue;
 
             for (const item of data.data) {
-                const config = item.configData;
-                if (!config) continue;
-
-                const ids = findAllAssetIds(config);
+                const ids = findAllAssetIds(item.configData);
 
                 for (const id of ids) {
                     const pathFile = path.join(IMAGE_DIR, `${id}.png`);
-                    if (fs.existsSync(pathFile)) continue;
+
+                    if (fs.existsSync(pathFile)) {
+                        const stats = fs.statSync(pathFile);
+                        if (placeholderSize !== null && stats.size === placeholderSize) {
+                            console.log(`[Refetch] ${id}.png matches placeholder size. Deleting...`);
+                            fs.unlinkSync(pathFile);
+                        } else {
+                            continue;
+                        }
+                    }
 
                     let success = false;
-
                     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
                         const ok = await download(`https://${g}.biggamesapi.io/image/${id}`, pathFile);
                         
                         if (ok) {
+                            const stats = fs.statSync(pathFile);
+                            if (placeholderSize !== null && stats.size === placeholderSize) {
+                                console.warn(`[!] ${id}.png is a placeholder. Deleting.`);
+                                fs.unlinkSync(pathFile);
+                                break; 
+                            }
+
                             console.log(`[${collName}] Saved: ${id}.png`);
                             success = true;
                             break; 
                         } else {
-                            if (attempt < MAX_RETRIES) {
-                                console.warn(`[${collName}] Fail ${attempt}/${MAX_RETRIES} for ${id}. Retrying...`);
-                                await SLEEP(RETRY_DELAY);
-                            } else {
-                                console.error(`[${collName}] Final failure for ${id}. Skipping.`);
-                            }
+                            await SLEEP(RETRY_DELAY);
                         }
                     }
                     await SLEEP(750); 
