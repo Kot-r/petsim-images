@@ -14,7 +14,7 @@ const getPlaceholderSize = () => {
     try {
         if (fs.existsSync(PLACEHOLDER_FILE)) {
             const content = fs.readFileSync(PLACEHOLDER_FILE, 'utf8').trim();
-            const size = Number(content); // Stricter than parseInt
+            const size = Number(content); 
             if (!isNaN(size) && size > 0) return size;
         }
     } catch (e) {
@@ -62,26 +62,16 @@ const get = (url) => new Promise((res, rej) => {
     }).on('error', rej);
 });
 
-// FIXED: Handles redirects and waits for the OS to fully close the file
 const download = (url, p) => new Promise((res) => {
     https.get(url, (r) => {
-        // Handle image CDN redirects
-        if ([301, 302].includes(r.statusCode)) {
-            return download(r.headers.location, p).then(res);
-        }
-        
+        if ([301, 302].includes(r.statusCode)) return download(r.headers.location, p).then(res);
         if (r.statusCode !== 200) return res(false);
         
         const w = fs.createWriteStream(p);
         r.pipe(w);
-        
         w.on('finish', () => {
-            // Explicitly wait for the file descriptor to close before resolving
-            w.close(() => res(true)); 
-        });
-        w.on('error', () => {
             w.close();
-            res(false);
+            setTimeout(() => res(true), 50); 
         });
     }).on('error', () => res(false));
 });
@@ -118,11 +108,10 @@ async function run() {
                 for (const id of ids) {
                     const pathFile = path.join(IMAGE_DIR, `${id}.png`);
 
-                    // CHECK EXISTING FILE
                     if (fs.existsSync(pathFile)) {
                         const stats = fs.statSync(pathFile);
                         if (placeholderSize !== null && stats.size === placeholderSize) {
-                            console.log(`[Refetch] ${id}.png matches placeholder size (${stats.size}b). Deleting...`);
+                            console.log(`[Purge] Found placeholder: ${id}.png (${stats.size} bytes). Deleting.`);
                             fs.unlinkSync(pathFile);
                         } else {
                             continue; // Valid file already exists, skip
@@ -131,13 +120,14 @@ async function run() {
 
                     let success = false;
                     for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-                        const ok = await download(`https://${g}.biggamesapi.io/image/${id}?test=1`, pathFile);
+                        // The magic happens right here: ?v=Timestamp
+                        const cacheBuster = `?v=${Date.now()}`;
+                        const ok = await download(`https://${g}.biggamesapi.io/image/${id}${cacheBuster}`, pathFile);
                         
                         if (ok) {
-                            // VERIFY DOWNLOADED FILE
                             const stats = fs.statSync(pathFile);
                             if (placeholderSize !== null && stats.size === placeholderSize) {
-                                console.warn(`[!] ${id}.png flagged as placeholder (Size: ${stats.size}b). Deleting.`);
+                                console.warn(`[!] API still serving placeholder for ${id} (${stats.size}b). Removing.`);
                                 fs.unlinkSync(pathFile);
                                 break; 
                             }
