@@ -11,9 +11,8 @@ Images update and automatically upload here once per ~2 hours to prevent rate li
 
 Tip: you can use the `image_missing.png` file if the image is missing, and use `shiny.png` for shiny pets, fruits and empowered enchants!
 
-> Current Script Version: 3.2
+> Current Script Version: 4.0
 > 
 > Recent Changes:
-> - Everything is dynamic now, hopefully it'll fetch all images now
-> - FIX: excluding Sounds because the errors slow down
-> - FIX: excluding Zones, reduced retry to 3
+> - Added a check to not save the placeholders (white document icons).
+> - Fixed caching issues to precent placeholders even more
