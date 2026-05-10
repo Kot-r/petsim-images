@@ -14,8 +14,8 @@ const getPlaceholderSize = () => {
     try {
         if (fs.existsSync(PLACEHOLDER_FILE)) {
             const content = fs.readFileSync(PLACEHOLDER_FILE, 'utf8').trim();
-            const size = parseInt(content, 10);
-            return isNaN(size) ? null : size;
+            const size = Number(content); // Stricter than parseInt
+            if (!isNaN(size) && size > 0) return size;
         }
     } catch (e) {
         console.error("Error reading placeholder_size.txt:", e.message);
@@ -62,12 +62,27 @@ const get = (url) => new Promise((res, rej) => {
     }).on('error', rej);
 });
 
+// FIXED: Handles redirects and waits for the OS to fully close the file
 const download = (url, p) => new Promise((res) => {
     https.get(url, (r) => {
+        // Handle image CDN redirects
+        if ([301, 302].includes(r.statusCode)) {
+            return download(r.headers.location, p).then(res);
+        }
+        
         if (r.statusCode !== 200) return res(false);
+        
         const w = fs.createWriteStream(p);
         r.pipe(w);
-        w.on('finish', () => { w.close(); res(true); });
+        
+        w.on('finish', () => {
+            // Explicitly wait for the file descriptor to close before resolving
+            w.close(() => res(true)); 
+        });
+        w.on('error', () => {
+            w.close();
+            res(false);
+        });
     }).on('error', () => res(false));
 });
 
@@ -76,7 +91,7 @@ async function run() {
 
     const placeholderSize = getPlaceholderSize();
     if (placeholderSize !== null) {
-        console.log(`[System] Excluding images with size: ${placeholderSize} bytes.`);
+        console.log(`[System] Excluding images with exact size: ${placeholderSize} bytes.`);
     } else {
         console.warn(`[System] No valid placeholder_size.txt found. Proceeding without exclusion.`);
     }
@@ -103,13 +118,14 @@ async function run() {
                 for (const id of ids) {
                     const pathFile = path.join(IMAGE_DIR, `${id}.png`);
 
+                    // CHECK EXISTING FILE
                     if (fs.existsSync(pathFile)) {
                         const stats = fs.statSync(pathFile);
                         if (placeholderSize !== null && stats.size === placeholderSize) {
-                            console.log(`[Refetch] ${id}.png matches placeholder size. Deleting...`);
+                            console.log(`[Refetch] ${id}.png matches placeholder size (${stats.size}b). Deleting...`);
                             fs.unlinkSync(pathFile);
                         } else {
-                            continue;
+                            continue; // Valid file already exists, skip
                         }
                     }
 
@@ -118,14 +134,15 @@ async function run() {
                         const ok = await download(`https://${g}.biggamesapi.io/image/${id}`, pathFile);
                         
                         if (ok) {
+                            // VERIFY DOWNLOADED FILE
                             const stats = fs.statSync(pathFile);
                             if (placeholderSize !== null && stats.size === placeholderSize) {
-                                console.warn(`[!] ${id}.png is a placeholder. Deleting.`);
+                                console.warn(`[!] ${id}.png flagged as placeholder (Size: ${stats.size}b). Deleting.`);
                                 fs.unlinkSync(pathFile);
                                 break; 
                             }
 
-                            console.log(`[${collName}] Saved: ${id}.png`);
+                            console.log(`[${collName}] Saved: ${id}.png (Size: ${stats.size}b)`);
                             success = true;
                             break; 
                         } else {
