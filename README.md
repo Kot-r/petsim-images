@@ -15,4 +15,4 @@ Tip: you can use the `image_missing.png` file if the image is missing, and use `
 > 
 > Recent Changes:
 > - Added a check to not save the placeholders (white document icons).
-> - Fixed caching issues to precent placeholders even more
+> - Fixed caching issues to prevent placeholders even more
