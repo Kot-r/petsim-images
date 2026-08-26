@@ -9,10 +9,12 @@ To get a certain image, you can use `(game).biggamesapi.io/api/collection/(colle
 
 Images update and automatically upload here once per ~2 hours to prevent rate limits!
 
-Tip: you can use the `image_missing.png` file if the image is missing, and use `shiny.png` for shiny pets, fruits and empowered enchants!
+Tip: you can use `shiny.png` for shiny pets, fruits and empowered enchants!
+
+Note: This project is not actively maintained. It may have errors, please report them in issues. It may take a while for me to reply.
 
 > Current Script Version: 4.0
 > 
-> Recent Changes:
+ Changes:
 > - Added a check to not save the placeholders (white document icons).
 > - Fixed caching issues to prevent placeholders even more
